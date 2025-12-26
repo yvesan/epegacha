@@ -4,12 +4,13 @@ import { PRIZE_POOL, COST_PER_DRAW } from './constants';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { DatabaseSetupGuide } from './components/DatabaseSetupGuide';
 
-// --- Helper: Offline Banner ---
+// --- Helper: Connection Status Banner ---
 const ConnectionStatus = () => {
     if (isSupabaseConfigured) return null;
     return (
-        <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-xs font-bold text-center py-1 z-50">
-            ⚠️ 警告：数据库未连接。当前为演示模式，数据不会保存，刷新页面即消失。请配置 .env 文件或部署到 Vercel。
+        <div className="fixed top-0 left-0 w-full bg-red-600/90 backdrop-blur text-white text-xs md:text-sm font-bold text-center py-2 z-[100] border-b border-red-400 shadow-lg">
+            ⚠️ 警告：数据库未连接。当前为【单机演示模式】。
+            <span className="hidden md:inline"> 学员端的抽奖数据无法传送到工作人员后台。请按教程配置 Supabase 和 Vercel。</span>
         </div>
     );
 };
@@ -46,25 +47,28 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-epe-black via-epe-dark to-purple-900 pt-12">
-      <div className="bg-black/60 backdrop-blur-md p-8 rounded-2xl border border-epe-purple shadow-2xl w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-epe-black via-epe-dark to-purple-900 pt-16">
+      <div className="bg-black/60 backdrop-blur-md p-8 rounded-2xl border border-epe-purple shadow-2xl w-full max-w-md relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-epe-blue to-epe-purple"></div>
+        
         <div className="text-center mb-8">
-            <h1 className="text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-epe-blue to-epe-purple mb-2">EPE</h1>
-            <p className="text-gray-300 text-sm tracking-widest uppercase">Elite Performance Equipment</p>
-            <h2 className="text-2xl font-bold mt-4 text-white">
-                {isStaffLogin ? '工作人员通道' : '盲盒抽奖系统'}
+            <h1 className="text-6xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-epe-blue to-epe-purple mb-2 drop-shadow-lg">EPE</h1>
+            <p className="text-gray-400 text-xs tracking-[0.3em] uppercase border-b border-gray-700 pb-4">Elite Performance Equipment</p>
+            <h2 className="text-2xl font-bold mt-6 text-white flex items-center justify-center gap-2">
+                {isStaffLogin ? '🛡️ 工作人员通道' : '⚡ 盲盒抽奖系统'}
             </h2>
         </div>
 
         {!isStaffLogin ? (
             <form onSubmit={handleStudentSubmit} className="space-y-6">
             <div>
-                <label className="block text-epe-blue text-sm font-bold mb-2">学员姓名</label>
+                <label className="block text-epe-blue text-sm font-bold mb-2 uppercase tracking-wider">学员姓名</label>
                 <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 border border-gray-600 text-white focus:outline-none focus:border-epe-blue focus:ring-1 focus:ring-epe-blue transition-all"
+                className="w-full px-4 py-4 rounded-lg bg-gray-800/50 border border-gray-600 text-white text-lg focus:outline-none focus:border-epe-blue focus:ring-1 focus:ring-epe-blue transition-all placeholder-gray-500"
                 placeholder="请输入您的姓名"
                 required
                 />
@@ -72,20 +76,20 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
             <button
                 type="submit"
                 disabled={loading}
-                className={`w-full bg-gradient-to-r from-epe-purple to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform transition hover:scale-105 active:scale-95 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-gradient-to-r from-epe-purple to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-4 px-4 rounded-lg shadow-lg transform transition hover:scale-[1.02] active:scale-95 text-lg ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-                {loading ? '查询中...' : '进入系统'}
+                {loading ? '正在查询数据...' : '🚀 进入系统'}
             </button>
             </form>
         ) : (
             <form onSubmit={handleStaffSubmit} className="space-y-6">
             <div>
-                <label className="block text-red-400 text-sm font-bold mb-2">管理员密码</label>
+                <label className="block text-red-400 text-sm font-bold mb-2 uppercase tracking-wider">管理员密码</label>
                 <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-gray-800 border border-red-500 text-white focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all"
+                className="w-full px-4 py-4 rounded-lg bg-gray-800/50 border border-red-500 text-white text-lg focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 transition-all placeholder-gray-600"
                 placeholder="请输入密码"
                 autoFocus
                 required
@@ -93,9 +97,9 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
             </div>
             <button
                 type="submit"
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg transform transition hover:scale-105 active:scale-95"
+                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-4 rounded-lg shadow-lg transform transition hover:scale-[1.02] active:scale-95 text-lg"
             >
-                验证身份
+                🔓 验证身份
             </button>
             </form>
         )}
@@ -107,7 +111,7 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
                     setIsStaffLogin(!isStaffLogin);
                     setPassword('');
                 }} 
-                className="text-xs text-gray-500 hover:text-white underline cursor-pointer px-4 py-2"
+                className="text-xs text-gray-500 hover:text-white underline cursor-pointer px-4 py-2 transition-colors"
             >
                 {isStaffLogin ? '← 返回学员登录' : '工作人员入口 (需密码)'}
             </button>
@@ -126,30 +130,32 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const fetchRecords = async () => {
         setLoading(true);
         if (!isSupabaseConfigured || !supabase) {
-            alert("⚠️ 数据库未连接，无法获取真实数据。当前显示为空。");
+            // Explicitly clearing records to avoid confusion
             setRecords([]);
             setLoading(false);
             return;
         }
 
-        const { data, error } = await supabase
-            .from('records')
-            .select('*')
-            .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error(error);
-            alert("读取记录失败: " + error.message);
-        }
+        try {
+            const { data, error } = await supabase
+                .from('records')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
 
-        if (data) {
-            const formattedData = data.map((item: any) => ({
-                ...item,
-                id: String(item.id) 
-            }));
-            setRecords(formattedData as DrawRecord[]);
+            if (data) {
+                const formattedData = data.map((item: any) => ({
+                    ...item,
+                    id: String(item.id) 
+                }));
+                setRecords(formattedData as DrawRecord[]);
+            }
+        } catch (error: any) {
+            alert("读取记录失败: " + error.message);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleRedeem = async (idStr: string) => {
@@ -172,14 +178,16 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 } else if (!data || data.length === 0) {
                     alert('❌ 核销失败: 未找到该记录，请尝试刷新列表');
                 } else {
-                    alert("✅ 核销成功！");
-                    await fetchRecords(); 
+                    // Success!
+                    await fetchRecords(); // Immediately refresh list
                 }
             } catch (e: any) {
                 alert('系统错误: ' + e.message);
             } finally {
                 setProcessingId(null);
             }
+        } else {
+            alert("无法核销：数据库未连接");
         }
     };
 
@@ -187,14 +195,37 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         fetchRecords();
     }, []);
 
+    if (!isSupabaseConfigured) {
+        return (
+            <div className="min-h-screen bg-gray-900 text-white p-8 pt-20 flex flex-col items-center justify-center">
+                <div className="bg-red-500/10 border border-red-500 p-6 rounded-xl max-w-lg text-center">
+                    <h2 className="text-2xl font-bold text-red-500 mb-4">无法连接后台</h2>
+                    <p className="mb-6 text-gray-300">
+                        检测到未配置 Supabase 数据库。工作人员后台必须连接数据库才能读取学员的抽奖记录。
+                        <br/><br/>
+                        请检查您的 <code>.env.local</code> (本地) 或 Vercel 环境变量配置。
+                    </p>
+                    <button onClick={onBack} className="bg-gray-700 px-6 py-2 rounded text-white hover:bg-gray-600">返回</button>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 pt-12">
+        <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 pt-16">
             <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-epe-blue">管理后台 - 核销中心</h1>
+                <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold text-epe-blue">管理后台 - 核销中心</h1>
+                        <p className="text-gray-400 text-sm mt-1">实时监控抽奖数据与核销管理</p>
+                    </div>
                     <div className="flex gap-4">
-                        <button onClick={fetchRecords} className="px-4 py-2 bg-blue-600 rounded hover:bg-blue-500">🔄 刷新列表</button>
-                        <button onClick={onBack} className="px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">退出后台</button>
+                        <button onClick={fetchRecords} className="flex items-center gap-2 px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-500 font-bold shadow-lg transition-transform hover:scale-105 active:scale-95">
+                            🔄 刷新数据
+                        </button>
+                        <button onClick={onBack} className="px-6 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+                            退出
+                        </button>
                     </div>
                 </div>
 
@@ -203,30 +234,47 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-700 text-gray-300">
                                 <tr>
-                                    <th className="p-4">时间</th>
-                                    <th className="p-4">姓名</th>
-                                    <th className="p-4">奖品</th>
-                                    <th className="p-4">类型</th>
-                                    <th className="p-4 text-center">状态</th>
-                                    <th className="p-4 text-center">操作</th>
+                                    <th className="p-4 whitespace-nowrap">时间</th>
+                                    <th className="p-4 whitespace-nowrap">姓名</th>
+                                    <th className="p-4 whitespace-nowrap">奖品内容</th>
+                                    <th className="p-4 whitespace-nowrap">类型</th>
+                                    <th className="p-4 text-center whitespace-nowrap">当前状态</th>
+                                    <th className="p-4 text-center whitespace-nowrap">操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr><td colSpan={6} className="p-8 text-center">加载中...</td></tr>
+                                    <tr><td colSpan={6} className="p-12 text-center text-gray-400 animate-pulse">正在从数据库加载记录...</td></tr>
                                 ) : records.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center">暂无记录 (数据库为空或未连接)</td></tr>
+                                    <tr><td colSpan={6} className="p-12 text-center text-gray-500">
+                                        暂无中奖记录。
+                                        <br/>
+                                        <span className="text-sm">(请确保学员端已进行抽奖，且数据库连接正常)</span>
+                                    </td></tr>
                                 ) : (
                                     records.map(record => (
-                                        <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750">
-                                            <td className="p-4 text-sm text-gray-400">{new Date(record.created_at).toLocaleString()}</td>
-                                            <td className="p-4 font-medium">{record.user_name}</td>
-                                            <td className="p-4 font-bold text-epe-gold">{record.prize_name}</td>
-                                            <td className="p-4 text-sm"><span className="px-2 py-1 rounded bg-gray-900">{record.prize_type}</span></td>
+                                        <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
+                                            <td className="p-4 text-sm text-gray-400 whitespace-nowrap">{new Date(record.created_at).toLocaleString()}</td>
+                                            <td className="p-4 font-medium text-lg text-white">{record.user_name}</td>
+                                            <td className="p-4">
+                                                <span className="font-bold text-epe-gold text-lg">{record.prize_name}</span>
+                                            </td>
+                                            <td className="p-4 text-sm">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                    record.prize_type === 'CASH' ? 'bg-red-900 text-red-200' : 
+                                                    record.prize_type === 'PHYSICAL' ? 'bg-blue-900 text-blue-200' : 'bg-gray-900 text-gray-400'
+                                                }`}>
+                                                    {record.prize_type}
+                                                </span>
+                                            </td>
                                             <td className="p-4 text-center">
                                                 {record.is_redeemed ? 
-                                                    <span className="text-green-500 font-bold bg-green-500/10 px-2 py-1 rounded">已核销</span> : 
-                                                    <span className="text-red-400 bg-red-400/10 px-2 py-1 rounded">未核销</span>
+                                                    <div className="inline-flex items-center gap-1 text-green-400 font-bold bg-green-400/10 px-3 py-1 rounded-full border border-green-400/20">
+                                                        <span>✓</span> 已核销
+                                                    </div> : 
+                                                    <div className="inline-flex items-center gap-1 text-red-400 bg-red-400/10 px-3 py-1 rounded-full border border-red-400/20">
+                                                        <span>!</span> 待处理
+                                                    </div>
                                                 }
                                             </td>
                                             <td className="p-4 text-center">
@@ -234,20 +282,20 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                                     <button 
                                                         onClick={() => handleRedeem(record.id)}
                                                         disabled={processingId === record.id}
-                                                        className={`px-3 py-1 font-bold text-sm rounded transition shadow-lg ${
+                                                        className={`w-24 py-2 font-bold text-sm rounded shadow-lg transition-all ${
                                                             processingId === record.id 
-                                                            ? 'bg-gray-500 cursor-wait' 
-                                                            : 'bg-epe-blue text-black hover:bg-cyan-400 hover:scale-105'
+                                                            ? 'bg-gray-600 text-gray-300 cursor-wait' 
+                                                            : 'bg-epe-blue text-black hover:bg-cyan-300 hover:scale-105 active:scale-95'
                                                         }`}
                                                     >
                                                         {processingId === record.id ? '处理中...' : '确认核销'}
                                                     </button>
                                                 )}
                                                 {(record.prize_type === 'EMPTY' || record.prize_type === 'POINT' || record.prize_type === 'FRAGMENT') && (
-                                                    <span className="text-gray-600 text-xs">无需核销</span>
+                                                    <span className="text-gray-600 text-xs italic">自动发放</span>
                                                 )}
                                                 {record.is_redeemed && (
-                                                    <span className="text-gray-500 text-xs">OK</span>
+                                                    <span className="text-gray-500 text-xs">已完成</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -332,7 +380,7 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
 
   const processDrawTransaction = async (wonPrize: Prize, pointsAfterDeduction: number) => {
     if (!isSupabaseConfigured || !supabase || !user.id) {
-        // If offline, just update local history for visual effect
+        // Offline Fallback for visual confirmation only
         const tempId = Date.now().toString();
         setHistory(prev => [{
             id: tempId,
@@ -366,7 +414,7 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
     const { error: recordError } = await supabase.from('records').insert([newRecord]);
     
     if (recordError) {
-        alert("⚠️ 严重错误：中奖记录保存失败！网络可能不稳定。");
+        alert("⚠️ 严重错误：中奖记录保存失败！可能是网络问题，请截图联系管理员。");
     }
 
     const { error: userError } = await supabase.from('users').update({
@@ -376,17 +424,16 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
     }).eq('id', user.id);
 
     if (userError) {
-         console.error(userError);
+         console.error("更新积分失败:", userError);
     }
 
-    // Sync UI with final calculated values
     onUpdateUser({ 
         points: finalPoints,
         fragment_500: currentF500,
         fragment_free: currentFFree
     });
     
-    // Refresh History from DB to be sure (optional, but good for consistency)
+    // Refresh History from DB
     const tempId = Date.now().toString();
     setHistory(prev => [{...newRecord, id: tempId, created_at: new Date().toISOString()}, ...prev]);
   };
@@ -397,7 +444,7 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
   };
 
   return (
-    <div className="min-h-screen bg-epe-black text-white flex flex-col items-center relative overflow-hidden pt-12">
+    <div className="min-h-screen bg-epe-black text-white flex flex-col items-center relative overflow-hidden pt-16">
         {/* Top Bar */}
         <div className="w-full p-4 flex justify-between items-center bg-gray-900/50 backdrop-blur z-20 border-b border-gray-800 absolute top-0 mt-8 md:mt-0">
             <div>
@@ -414,24 +461,24 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
         </div>
 
         {/* Fragment Dashboard */}
-        <div className="w-full max-w-4xl p-4 grid grid-cols-2 gap-4 z-20 mt-12 md:mt-16">
-            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-1">500元红包碎片</span>
+        <div className="w-full max-w-4xl p-4 grid grid-cols-2 gap-4 z-20 mt-12 md:mt-12">
+            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex flex-col items-center shadow-lg">
+                <span className="text-xs text-gray-400 mb-1 font-bold">500元红包碎片</span>
                 <div className="flex gap-1">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className={`w-6 h-8 rounded ${i <= user.fragment_500 % 3 && user.fragment_500 > 0 ? 'bg-epe-gold shadow-[0_0_10px_#ffd700]' : 'bg-gray-600'}`}></div>
+                        <div key={i} className={`w-8 h-10 rounded transition-all duration-500 border border-black/50 ${i <= user.fragment_500 % 3 && user.fragment_500 > 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-600 shadow-[0_0_15px_#ffd700] scale-110' : 'bg-gray-700'}`}></div>
                     ))}
                 </div>
-                <span className="text-xs mt-1 text-epe-gold">{user.fragment_500}/3</span>
+                <span className="text-xs mt-1 text-epe-gold font-mono">{user.fragment_500}/3</span>
             </div>
-            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex flex-col items-center">
-                <span className="text-xs text-gray-400 mb-1">季度免单碎片</span>
+            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex flex-col items-center shadow-lg">
+                <span className="text-xs text-gray-400 mb-1 font-bold">季度免单碎片</span>
                 <div className="flex gap-1">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className={`w-6 h-8 rounded ${i <= user.fragment_free % 3 && user.fragment_free > 0 ? 'bg-epe-purple shadow-[0_0_10px_#b026ff]' : 'bg-gray-600'}`}></div>
+                        <div key={i} className={`w-8 h-10 rounded transition-all duration-500 border border-black/50 ${i <= user.fragment_free % 3 && user.fragment_free > 0 ? 'bg-gradient-to-br from-purple-400 to-purple-700 shadow-[0_0_15px_#b026ff] scale-110' : 'bg-gray-700'}`}></div>
                     ))}
                 </div>
-                <span className="text-xs mt-1 text-epe-purple">{user.fragment_free}/3</span>
+                <span className="text-xs mt-1 text-epe-purple font-mono">{user.fragment_free}/3</span>
             </div>
         </div>
 
@@ -442,17 +489,20 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
             {state !== 'REVEALED' && (
                 <div 
                     onClick={handleStart}
-                    className={`cursor-pointer relative w-64 h-80 transition-transform duration-300 ${state === 'SHAKING' ? 'animate-shake' : 'hover:scale-105'} ${state === 'OPENING' ? 'opacity-0 scale-150' : 'opacity-100'}`}
+                    className={`cursor-pointer relative w-64 h-80 transition-all duration-300 ${state === 'SHAKING' ? 'animate-shake' : 'hover:scale-105 hover:rotate-1'} ${state === 'OPENING' ? 'opacity-0 scale-150' : 'opacity-100'}`}
                 >
-                    <div className="absolute inset-0 bg-gradient-to-b from-gray-700 to-black rounded-lg border-2 border-gray-600 shadow-2xl overflow-hidden flex flex-col items-center justify-center">
-                        <div className="absolute inset-0 opacity-10" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '10px 10px'}}></div>
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-gray-800 to-black rounded-xl border-2 border-gray-600 shadow-2xl overflow-hidden flex flex-col items-center justify-center group">
+                        {/* EPE Pattern Background */}
+                        <div className="absolute inset-0 opacity-5" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '10px 10px'}}></div>
                         
-                        <h1 className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-epe-gold to-yellow-600 z-10 transform -rotate-12 drop-shadow-lg">EPE</h1>
-                        <p className="mt-4 text-gray-400 font-mono text-xs z-10 border border-gray-500 px-2 py-1 rounded">PREMIUM PACK</p>
+                        {/* Glossy Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent skew-x-12"></div>
                         
-                        <div className="absolute bottom-4 text-epe-blue text-sm font-bold animate-pulse">
-                            {user.points >= COST_PER_DRAW ? `点击开启 (${COST_PER_DRAW}积分)` : `积分不足 (${user.points}/${COST_PER_DRAW})`}
+                        <h1 className="text-7xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-epe-gold to-yellow-700 z-10 transform -rotate-12 drop-shadow-[0_5px_5px_rgba(0,0,0,0.8)]">EPE</h1>
+                        <div className="mt-4 px-3 py-1 border border-gray-500 rounded text-[10px] text-gray-400 tracking-[0.2em] z-10 bg-black/50 backdrop-blur">LIMITED EDITION</div>
+                        
+                        <div className={`absolute bottom-6 w-4/5 text-center py-2 rounded-full text-sm font-bold transition-all shadow-lg ${user.points >= COST_PER_DRAW ? 'bg-epe-blue text-black animate-pulse hover:bg-white' : 'bg-gray-700 text-gray-400'}`}>
+                            {user.points >= COST_PER_DRAW ? `点击开启 (-${COST_PER_DRAW})` : `积分不足`}
                         </div>
                     </div>
                 </div>
@@ -460,28 +510,30 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
 
             {/* The Card (Revealed) */}
             {state === 'REVEALED' && prize && (
-                <div className="animate-pop w-72 h-[26rem] perspective-1000 relative">
-                    <div className={`relative w-full h-full rounded-xl shadow-2xl overflow-hidden border-4 ${prize.type === 'EMPTY' ? 'border-gray-500' : 'border-epe-gold animate-glow'} bg-gray-900 flex flex-col items-center p-6 text-center`}>
-                        <div className={`absolute top-0 left-0 w-full h-full opacity-30 bg-gradient-to-b ${prize.rarity.replace('bg-', 'from-')} to-transparent`}></div>
+                <div className="animate-pop w-72 h-[28rem] perspective-1000 relative">
+                    <div className={`relative w-full h-full rounded-2xl shadow-2xl overflow-hidden border-[3px] ${prize.type === 'EMPTY' ? 'border-gray-600' : 'border-epe-gold animate-glow'} bg-gray-900 flex flex-col items-center p-0 text-center`}>
+                        {/* Card Header Background */}
+                        <div className={`absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b ${prize.rarity.replace('bg-', 'from-')} to-gray-900 opacity-60`}></div>
                         
-                        <div className="z-10 mt-8 mb-4">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold text-white ${prize.rarity} shadow-lg`}>
-                                {prize.rarity === Rarity.LEGENDARY ? '传说' : prize.rarity === Rarity.RARE ? '稀有' : prize.rarity === Rarity.UNCOMMON ? '优秀' : '普通'}
+                        <div className="z-10 mt-6 mb-2 w-full px-4 flex justify-between items-start">
+                            <span className="text-[10px] text-gray-400 tracking-widest">EPE GACHA</span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase ${prize.rarity} shadow-lg`}>
+                                {prize.rarity === Rarity.LEGENDARY ? 'LEGENDARY' : prize.rarity === Rarity.RARE ? 'RARE' : prize.rarity === Rarity.UNCOMMON ? 'UNCOMMON' : 'COMMON'}
                             </span>
                         </div>
 
-                        <div className="z-10 flex-1 flex flex-col items-center justify-center">
-                            <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-md">{prize.name}</h2>
-                            <p className="text-gray-300 text-sm">{prize.description}</p>
-                            
-                            {prize.type !== 'EMPTY' && <div className="mt-6 text-5xl">🎁</div>}
-                            {prize.type === 'EMPTY' && <div className="mt-6 text-5xl">💨</div>}
+                        <div className="z-10 flex-1 flex flex-col items-center justify-center w-full px-6">
+                            <div className="mb-4 transform scale-150">
+                                {prize.type !== 'EMPTY' ? '🎁' : '💨'}
+                            </div>
+                            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-wide leading-tight drop-shadow-md">{prize.name}</h2>
+                            <p className="text-gray-300 text-sm font-light border-t border-white/10 pt-2 w-full">{prize.description}</p>
                         </div>
 
-                        <div className="z-10 w-full mt-4">
+                        <div className="z-10 w-full p-6 bg-gray-900/80 backdrop-blur-sm">
                             <button 
                                 onClick={reset}
-                                className="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition shadow-lg"
+                                className="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition shadow-[0_0_15px_rgba(255,255,255,0.3)] uppercase tracking-wider text-sm"
                             >
                                 收下奖励
                             </button>
@@ -492,16 +544,19 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
         </div>
 
         {/* History List */}
-        <div className="w-full max-w-2xl bg-gray-900/80 p-4 border-t border-gray-800 z-20 h-48 overflow-y-auto mb-8">
-            <h3 className="text-gray-400 text-xs font-bold uppercase mb-2 sticky top-0 bg-gray-900 py-1">近期记录</h3>
-            <div className="space-y-2">
+        <div className="w-full max-w-2xl bg-gray-900/90 backdrop-blur border-t border-gray-700 z-20 h-48 flex flex-col shadow-[0_-5px_20px_rgba(0,0,0,0.5)]">
+            <div className="p-3 border-b border-gray-700 bg-gray-800 flex justify-between items-center">
+                <h3 className="text-gray-300 text-xs font-bold uppercase tracking-wider">近期中奖记录</h3>
+                <span className="text-[10px] text-gray-500">仅显示最近10条</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {history.map((rec) => (
-                    <div key={rec.id} className="flex justify-between items-center bg-gray-800 p-2 rounded text-sm">
-                        <span className="text-gray-400 text-xs">{new Date(rec.created_at).toLocaleTimeString()}</span>
-                        <span className={rec.prize_type === 'EMPTY' ? 'text-gray-500' : 'text-white font-bold'}>
+                    <div key={rec.id} className="flex justify-between items-center bg-black/40 p-3 rounded border border-gray-800 hover:border-gray-600 transition-colors">
+                        <span className="text-gray-500 text-xs font-mono">{new Date(rec.created_at).toLocaleTimeString()}</span>
+                        <span className={`text-sm font-medium ${rec.prize_type === 'EMPTY' ? 'text-gray-500' : 'text-epe-blue'}`}>
                             {rec.prize_name}
                         </span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-black/30 text-gray-400">
+                        <span className={`text-[10px] px-2 py-0.5 rounded ${rec.is_redeemed ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'}`}>
                            {rec.is_redeemed ? '已核销' : '未领取'}
                         </span>
                     </div>
@@ -544,10 +599,9 @@ const App: React.FC = () => {
                 };
             } else {
                 // User does not exist, create new one.
-                // CHANGED: DEFAULT 300 POINTS FOR NEW USERS (FOR TESTING)
                 const { data: newUser, error } = await supabase
                     .from('users')
-                    .insert([{ name, points: 300 }])
+                    .insert([{ name, points: 300 }]) // Default points for new users
                     .select()
                     .single();
                 
