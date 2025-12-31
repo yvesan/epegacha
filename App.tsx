@@ -104,17 +104,18 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
             </form>
         )}
         
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-center pt-4 border-t border-white/10">
             <button 
                 type="button"
                 onClick={() => {
                     setIsStaffLogin(!isStaffLogin);
                     setPassword('');
                 }} 
-                className="text-xs text-gray-500 hover:text-white underline cursor-pointer px-4 py-2 transition-colors"
+                className={`text-sm px-4 py-2 rounded-full transition-all ${isStaffLogin ? 'bg-gray-700 text-white' : 'bg-black/40 text-gray-400 hover:text-white border border-gray-600'}`}
             >
-                {isStaffLogin ? '← 返回学员登录' : '工作人员入口 (需密码)'}
+                {isStaffLogin ? '← 返回学员登录' : '🔐 工作人员入口 (需密码)'}
             </button>
+            <p className="text-[10px] text-gray-600 mt-4 font-mono">System v1.2</p>
         </div>
       </div>
     </div>
@@ -123,88 +124,136 @@ const LoginForm: React.FC<LoginProps> = ({ onLogin, isAdminMode, toggleAdmin, lo
 
 // 2. Admin Component
 const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const [activeTab, setActiveTab] = useState<'redeem' | 'users'>('redeem');
+    
+    // --- Redeem Logic ---
     const [records, setRecords] = useState<DrawRecord[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingRecords, setLoadingRecords] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
 
+    // --- Users Logic ---
+    const [users, setUsers] = useState<User[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [pointsDelta, setPointsDelta] = useState<string>(''); // For inputting +100 or -50
+
+    // Fetch Records
     const fetchRecords = async () => {
-        setLoading(true);
+        setLoadingRecords(true);
         if (!isSupabaseConfigured || !supabase) {
-            // Explicitly clearing records to avoid confusion
             setRecords([]);
-            setLoading(false);
+            setLoadingRecords(false);
             return;
         }
-
         try {
             const { data, error } = await supabase
                 .from('records')
                 .select('*')
                 .order('created_at', { ascending: false });
-            
             if (error) throw error;
-
             if (data) {
-                const formattedData = data.map((item: any) => ({
-                    ...item,
-                    id: String(item.id) 
-                }));
+                const formattedData = data.map((item: any) => ({ ...item, id: String(item.id) }));
                 setRecords(formattedData as DrawRecord[]);
             }
         } catch (error: any) {
             alert("读取记录失败: " + error.message);
         } finally {
-            setLoading(false);
+            setLoadingRecords(false);
+        }
+    };
+
+    // Fetch Users
+    const fetchUsers = async () => {
+        setLoadingUsers(true);
+        if (!isSupabaseConfigured || !supabase) {
+            setUsers([]);
+            setLoadingUsers(false);
+            return;
+        }
+        try {
+            let query = supabase.from('users').select('*').order('points', { ascending: false });
+            if (searchTerm) {
+                query = query.ilike('name', `%${searchTerm}%`);
+            }
+            const { data, error } = await query;
+            if (error) throw error;
+            if (data) setUsers(data as User[]);
+        } catch (error: any) {
+            alert("读取用户失败: " + error.message);
+        } finally {
+            setLoadingUsers(false);
         }
     };
 
     const handleRedeem = async (idStr: string) => {
         if (!confirm('确认要核销这个奖品吗？')) return;
-
         if (isSupabaseConfigured && supabase) {
             setProcessingId(idStr); 
-            
             try {
                 const dbId = parseInt(idStr); 
-
-                const { data, error } = await supabase
-                    .from('records')
-                    .update({ is_redeemed: true })
-                    .eq('id', dbId)
-                    .select();
-                
-                if (error) {
-                    alert('❌ 核销失败 (数据库错误): ' + error.message);
-                } else if (!data || data.length === 0) {
-                    alert('❌ 核销失败: 未找到该记录，请尝试刷新列表');
-                } else {
-                    // Success!
-                    await fetchRecords(); // Immediately refresh list
-                }
+                const { data, error } = await supabase.from('records').update({ is_redeemed: true }).eq('id', dbId).select();
+                if (error) alert('❌ 核销失败: ' + error.message);
+                else await fetchRecords();
             } catch (e: any) {
                 alert('系统错误: ' + e.message);
             } finally {
                 setProcessingId(null);
             }
-        } else {
-            alert("无法核销：数据库未连接");
+        }
+    };
+
+    const handleUpdatePoints = async () => {
+        if (!editingUser || !pointsDelta) return;
+        const delta = parseInt(pointsDelta);
+        if (isNaN(delta)) {
+            alert("请输入有效的数字");
+            return;
+        }
+
+        if (!confirm(`确认要给 ${editingUser.name} ${delta >= 0 ? '增加' : '扣除'} ${Math.abs(delta)} 积分吗？\n\n当前: ${editingUser.points}\n修改后: ${editingUser.points + delta}`)) return;
+
+        if (isSupabaseConfigured && supabase) {
+            try {
+                // 1. Fetch latest data to avoid race conditions
+                const { data: latestUser, error: fetchError } = await supabase.from('users').select('points').eq('id', editingUser.id).single();
+                if (fetchError || !latestUser) throw new Error("获取最新数据失败");
+
+                const newTotal = latestUser.points + delta;
+
+                // 2. Update
+                const { error: updateError } = await supabase.from('users').update({ points: newTotal }).eq('id', editingUser.id);
+                if (updateError) throw updateError;
+
+                alert("✅ 修改成功！");
+                setEditingUser(null);
+                setPointsDelta('');
+                fetchUsers(); // Refresh list
+            } catch (e: any) {
+                alert("修改失败: " + e.message);
+            }
         }
     };
 
     useEffect(() => {
-        fetchRecords();
-    }, []);
+        if (activeTab === 'redeem') fetchRecords();
+        if (activeTab === 'users') fetchUsers();
+    }, [activeTab]);
+
+    // Debounce search
+    useEffect(() => {
+        if (activeTab === 'users') {
+            const timer = setTimeout(fetchUsers, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [searchTerm]);
 
     if (!isSupabaseConfigured) {
         return (
             <div className="min-h-screen bg-gray-900 text-white p-8 pt-20 flex flex-col items-center justify-center">
                 <div className="bg-red-500/10 border border-red-500 p-6 rounded-xl max-w-lg text-center">
                     <h2 className="text-2xl font-bold text-red-500 mb-4">无法连接后台</h2>
-                    <p className="mb-6 text-gray-300">
-                        检测到未配置 Supabase 数据库。工作人员后台必须连接数据库才能读取学员的抽奖记录。
-                        <br/><br/>
-                        请检查您的 <code>.env.local</code> (本地) 或 Vercel 环境变量配置。
-                    </p>
+                    <p className="mb-6 text-gray-300">检测到未配置 Supabase 数据库。</p>
                     <button onClick={onBack} className="bg-gray-700 px-6 py-2 rounded text-white hover:bg-gray-600">返回</button>
                 </div>
             </div>
@@ -212,100 +261,187 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 pt-16">
+        <div className="min-h-screen bg-gray-900 text-white p-4 pt-16">
             <div className="max-w-6xl mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold text-epe-blue">管理后台 - 核销中心</h1>
-                        <p className="text-gray-400 text-sm mt-1">实时监控抽奖数据与核销管理</p>
+                {/* Admin Header */}
+                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-gray-700 pb-4">
+                    <div className="text-center md:text-left">
+                        <h1 className="text-2xl font-bold text-epe-blue">管理后台</h1>
+                        <p className="text-gray-400 text-xs">EPE ADMIN PANEL</p>
                     </div>
-                    <div className="flex gap-4">
-                        <button onClick={fetchRecords} className="flex items-center gap-2 px-6 py-2 bg-blue-600 rounded-lg hover:bg-blue-500 font-bold shadow-lg transition-transform hover:scale-105 active:scale-95">
-                            🔄 刷新数据
-                        </button>
-                        <button onClick={onBack} className="px-6 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
-                            退出
-                        </button>
+                    
+                    <div className="flex gap-2">
+                        <button onClick={onBack} className="px-4 py-2 bg-gray-800 border border-gray-600 rounded text-sm hover:bg-gray-700">← 退出系统</button>
                     </div>
                 </div>
 
-                <div className="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-gray-700 text-gray-300">
-                                <tr>
-                                    <th className="p-4 whitespace-nowrap">时间</th>
-                                    <th className="p-4 whitespace-nowrap">姓名</th>
-                                    <th className="p-4 whitespace-nowrap">奖品内容</th>
-                                    <th className="p-4 whitespace-nowrap">类型</th>
-                                    <th className="p-4 text-center whitespace-nowrap">当前状态</th>
-                                    <th className="p-4 text-center whitespace-nowrap">操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    <tr><td colSpan={6} className="p-12 text-center text-gray-400 animate-pulse">正在从数据库加载记录...</td></tr>
-                                ) : records.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-12 text-center text-gray-500">
-                                        暂无中奖记录。
-                                        <br/>
-                                        <span className="text-sm">(请确保学员端已进行抽奖，且数据库连接正常)</span>
-                                    </td></tr>
-                                ) : (
-                                    records.map(record => (
-                                        <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
-                                            <td className="p-4 text-sm text-gray-400 whitespace-nowrap">{new Date(record.created_at).toLocaleString()}</td>
-                                            <td className="p-4 font-medium text-lg text-white">{record.user_name}</td>
-                                            <td className="p-4">
-                                                <span className="font-bold text-epe-gold text-lg">{record.prize_name}</span>
-                                            </td>
-                                            <td className="p-4 text-sm">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                    record.prize_type === 'CASH' ? 'bg-red-900 text-red-200' : 
-                                                    record.prize_type === 'PHYSICAL' ? 'bg-blue-900 text-blue-200' : 'bg-gray-900 text-gray-400'
-                                                }`}>
-                                                    {record.prize_type}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {record.is_redeemed ? 
-                                                    <div className="inline-flex items-center gap-1 text-green-400 font-bold bg-green-400/10 px-3 py-1 rounded-full border border-green-400/20">
-                                                        <span>✓</span> 已核销
-                                                    </div> : 
-                                                    <div className="inline-flex items-center gap-1 text-red-400 bg-red-400/10 px-3 py-1 rounded-full border border-red-400/20">
-                                                        <span>!</span> 待处理
-                                                    </div>
-                                                }
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {!record.is_redeemed && record.prize_type !== 'EMPTY' && record.prize_type !== 'POINT' && record.prize_type !== 'FRAGMENT' && (
-                                                    <button 
-                                                        onClick={() => handleRedeem(record.id)}
-                                                        disabled={processingId === record.id}
-                                                        className={`w-24 py-2 font-bold text-sm rounded shadow-lg transition-all ${
-                                                            processingId === record.id 
-                                                            ? 'bg-gray-600 text-gray-300 cursor-wait' 
-                                                            : 'bg-epe-blue text-black hover:bg-cyan-300 hover:scale-105 active:scale-95'
-                                                        }`}
-                                                    >
-                                                        {processingId === record.id ? '处理中...' : '确认核销'}
-                                                    </button>
-                                                )}
-                                                {(record.prize_type === 'EMPTY' || record.prize_type === 'POINT' || record.prize_type === 'FRAGMENT') && (
-                                                    <span className="text-gray-600 text-xs italic">自动发放</span>
-                                                )}
-                                                {record.is_redeemed && (
-                                                    <span className="text-gray-500 text-xs">已完成</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                {/* Tab Navigation (Big & Clear) */}
+                <div className="flex gap-2 mb-8 bg-gray-800/50 p-2 rounded-xl">
+                    <button 
+                        onClick={() => setActiveTab('redeem')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm md:text-base transition-all flex items-center justify-center gap-2 ${activeTab === 'redeem' ? 'bg-epe-blue text-black shadow-lg scale-[1.02]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        🎁 奖品核销
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('users')}
+                        className={`flex-1 py-3 px-4 rounded-lg font-bold text-sm md:text-base transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-epe-purple text-white shadow-lg scale-[1.02]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                    >
+                        👥 学员管理 (充值)
+                    </button>
+                </div>
+
+                {activeTab === 'redeem' ? (
+                    <div className="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700 animate-pop">
+                         <div className="p-4 border-b border-gray-700 flex justify-between items-center">
+                            <h3 className="font-bold text-lg">核销记录列表</h3>
+                            <button onClick={fetchRecords} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">↻ 刷新</button>
+                         </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="bg-gray-700 text-gray-300">
+                                    <tr>
+                                        <th className="p-4 whitespace-nowrap">时间</th>
+                                        <th className="p-4 whitespace-nowrap">姓名</th>
+                                        <th className="p-4 whitespace-nowrap">奖品内容</th>
+                                        <th className="p-4 whitespace-nowrap">状态</th>
+                                        <th className="p-4 text-center whitespace-nowrap">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loadingRecords ? (
+                                        <tr><td colSpan={5} className="p-12 text-center text-gray-400 animate-pulse">加载中...</td></tr>
+                                    ) : records.length === 0 ? (
+                                        <tr><td colSpan={5} className="p-12 text-center text-gray-500">暂无记录</td></tr>
+                                    ) : (
+                                        records.map(record => (
+                                            <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
+                                                <td className="p-4 text-sm text-gray-400">{new Date(record.created_at).toLocaleString()}</td>
+                                                <td className="p-4 font-medium">{record.user_name}</td>
+                                                <td className="p-4">
+                                                    <span className="font-bold text-epe-gold">{record.prize_name}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({record.prize_type})</span>
+                                                </td>
+                                                <td className="p-4">
+                                                    {record.is_redeemed ? <span className="text-green-400">✓ 已核销</span> : <span className="text-red-400">! 待处理</span>}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {!record.is_redeemed && record.prize_type !== 'EMPTY' && record.prize_type !== 'POINT' && record.prize_type !== 'FRAGMENT' && (
+                                                        <button 
+                                                            onClick={() => handleRedeem(record.id)}
+                                                            disabled={processingId === record.id}
+                                                            className="px-3 py-1 bg-epe-blue text-black text-xs font-bold rounded hover:bg-cyan-300"
+                                                        >
+                                                            {processingId === record.id ? '...' : '核销'}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4 animate-pop">
+                         {/* User Management Toolbar */}
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row justify-between gap-4">
+                             <input 
+                                type="text" 
+                                placeholder="🔍 搜索学员姓名..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-black/30 border border-gray-600 rounded px-4 py-2 text-white focus:border-epe-purple focus:outline-none w-full md:w-64"
+                             />
+                             <div className="text-sm text-gray-400 flex items-center justify-end">
+                                 共找到 {users.length} 位学员
+                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {loadingUsers ? (
+                                <div className="col-span-full py-12 text-center text-gray-500">正在获取学员数据...</div>
+                            ) : (
+                                users.map(u => (
+                                    <div key={u.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg flex flex-col justify-between hover:border-epe-purple/50 transition-colors">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white">{u.name}</h3>
+                                                <p className="text-gray-500 text-xs">ID: {u.id}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="block text-2xl font-bold text-epe-gold">{u.points}</span>
+                                                <span className="text-xs text-gray-400">当前积分</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-black/20 rounded p-2 mb-4 grid grid-cols-2 gap-2 text-center">
+                                             <div>
+                                                <span className="block text-xs text-gray-500">500元碎片</span>
+                                                <span className="font-mono text-epe-blue">{u.fragment_500}/3</span>
+                                             </div>
+                                             <div>
+                                                <span className="block text-xs text-gray-500">免单碎片</span>
+                                                <span className="font-mono text-epe-purple">{u.fragment_free}/3</span>
+                                             </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={() => setEditingUser(u)}
+                                            className="w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-bold transition-colors border border-gray-600 hover:border-epe-purple hover:text-white"
+                                        >
+                                            ✏️ 修改/充值积分
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Edit Points Modal */}
+            {editingUser && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
+                    <div className="bg-gray-800 rounded-xl p-6 max-w-sm w-full border border-gray-600 shadow-2xl animate-pop">
+                        <h3 className="text-xl font-bold mb-1">积分变动: {editingUser.name}</h3>
+                        <p className="text-gray-400 text-sm mb-6">当前余额: <span className="text-epe-gold">{editingUser.points}</span></p>
+                        
+                        <div className="mb-6">
+                            <label className="block text-xs uppercase text-gray-500 font-bold mb-2">变动数值 (正数增加，负数扣除)</label>
+                            <input 
+                                type="number" 
+                                autoFocus
+                                value={pointsDelta}
+                                onChange={(e) => setPointsDelta(e.target.value)}
+                                placeholder="例如: 100 或 -30"
+                                className="w-full bg-black/50 border border-gray-500 rounded px-4 py-3 text-xl text-white focus:border-epe-blue focus:outline-none"
+                            />
+                            <div className="flex gap-2 mt-2">
+                                <button onClick={() => setPointsDelta('100')} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-xs font-bold text-green-300 border border-green-900">+100</button>
+                                <button onClick={() => setPointsDelta('500')} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-xs font-bold text-green-300 border border-green-900">+500</button>
+                                <button onClick={() => setPointsDelta('-30')} className="bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-xs font-bold text-red-300 border border-red-900">-30</button>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button 
+                                onClick={() => { setEditingUser(null); setPointsDelta(''); }}
+                                className="flex-1 py-3 bg-gray-700 rounded-lg hover:bg-gray-600 font-bold"
+                            >
+                                取消
+                            </button>
+                            <button 
+                                onClick={handleUpdatePoints}
+                                className="flex-1 py-3 bg-epe-blue text-black rounded-lg hover:bg-cyan-400 font-bold shadow-lg"
+                            >
+                                确认执行
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
