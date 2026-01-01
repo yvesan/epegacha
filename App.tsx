@@ -138,6 +138,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [pointsDelta, setPointsDelta] = useState<string>(''); // For inputting +100 or -50
     const [pasteContent, setPasteContent] = useState(''); // Textarea content
+    const [importStatus, setImportStatus] = useState<string>(''); // Progress message
+    const [currentPage, setCurrentPage] = useState(1);
+    const USERS_PER_PAGE = 50;
+
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch Records
@@ -180,7 +184,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             }
             const { data, error } = await query;
             if (error) throw error;
-            if (data) setUsers(data as User[]);
+            if (data) {
+                setUsers(data as User[]);
+                setCurrentPage(1); // Reset to page 1 on search/refresh
+            }
         } catch (error: any) {
             alert("读取用户失败: " + error.message);
         } finally {
@@ -293,11 +300,14 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         if (!confirm(confirmMsg)) return;
 
         setLoadingUsers(true);
+        setImportStatus('正在初始化...');
+        
         try {
-            // 2. Fetch existing users to allow accumulation logic
-            const names = updates.map(u => u.name);
+            // 2. Batch Processing for existing user lookup
+            // Fetching all users first is safer for checking accumulation than batching reads if list is small enough (<2000)
+            // But we will batch the WRITES which is the bottleneck.
             
-            // Supabase 'in' query
+            const names = updates.map(u => u.name);
             const { data: existingUsers, error: fetchError } = await supabase
                 .from('users')
                 .select('*')
@@ -305,19 +315,20 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
             if (fetchError) throw fetchError;
 
-            // Map for quick lookup: Name -> UserObject
             const existingMap = new Map<string, any>((existingUsers || []).map((u: any) => [u.name, u]));
 
-            // 3. Prepare Upsert Payload
-            const payload = updates.map(update => {
+            // 3. Prepare Payload
+            const fullPayload = updates.map(update => {
                 const existing = existingMap.get(update.name);
                 if (existing) {
                     // MODE A: Accumulate
-                    // IMPORTANT: We must retain fragment counts and other fields.
+                    // CRITICAL FIX: DO NOT include 'id'. Let onConflict handle matching by name.
+                    // Including 'id' causes "null value in column id" error if mixed with new inserts.
                     return {
-                        ...existing,
+                        name: existing.name, // Match Key
                         points: existing.points + update.points,
-                        // Explicitly ensuring we update the timestamp (optional)
+                        fragment_500: existing.fragment_500,
+                        fragment_free: existing.fragment_free,
                     };
                 } else {
                     // INSERT: New User
@@ -330,22 +341,34 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 }
             });
 
-            // 4. Execute Upsert
-            const { error: upsertError } = await supabase
-                .from('users')
-                .upsert(payload, { onConflict: 'name' });
+            // 4. Batch Execution (Chunking)
+            const BATCH_SIZE = 50;
+            const totalBatches = Math.ceil(fullPayload.length / BATCH_SIZE);
+            
+            for (let i = 0; i < fullPayload.length; i += BATCH_SIZE) {
+                const chunk = fullPayload.slice(i, i + BATCH_SIZE);
+                const currentBatch = Math.floor(i / BATCH_SIZE) + 1;
+                
+                setImportStatus(`正在写入第 ${currentBatch}/${totalBatches} 批数据 (${chunk.length}条)...`);
+                
+                // Using upsert with onConflict on 'name'
+                const { error: upsertError } = await supabase
+                    .from('users')
+                    .upsert(chunk, { onConflict: 'name' });
 
-            if (upsertError) throw upsertError;
+                if (upsertError) throw upsertError;
+            }
 
-            alert(`✅ 成功导入/更新 ${payload.length} 位学员积分！`);
-            setPasteContent(''); // Clear text area on success
-            fetchUsers(); // Refresh the list
+            alert(`✅ 成功导入/更新 ${fullPayload.length} 位学员积分！`);
+            setPasteContent(''); 
+            fetchUsers(); 
 
         } catch (err: any) {
             console.error(err);
             alert("❌ 导入失败: " + err.message);
         } finally {
             setLoadingUsers(false);
+            setImportStatus('');
         }
     };
 
@@ -362,6 +385,13 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             return () => clearTimeout(timer);
         }
     }, [searchTerm]);
+
+    // Pagination Logic
+    const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
+    const paginatedUsers = users.slice(
+        (currentPage - 1) * USERS_PER_PAGE,
+        currentPage * USERS_PER_PAGE
+    );
 
     if (!isSupabaseConfigured) {
         return (
@@ -461,7 +491,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 ) : (
                     <div className="space-y-4 animate-pop">
                          
-                         {/* NEW: Paste Import Area */}
+                         {/* Paste Import Area */}
                         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-2 shadow-lg">
                             <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-white flex items-center gap-2">
@@ -484,10 +514,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                             if(!pasteContent.trim()) return;
                                             await processCSV(pasteContent);
                                         }}
-                                        disabled={!pasteContent.trim()}
-                                        className={`py-3 px-4 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${pasteContent.trim() ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white transform hover:scale-105' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                                        disabled={!pasteContent.trim() || !!importStatus}
+                                        className={`py-3 px-4 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${pasteContent.trim() && !importStatus ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white transform hover:scale-105' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
                                     >
-                                        🚀 执行导入
+                                        {importStatus ? '⏳ 处理中...' : '🚀 执行导入'}
                                     </button>
                                     <button
                                         onClick={() => setPasteContent('')}
@@ -497,6 +527,12 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     </button>
                                 </div>
                             </div>
+                            {/* Import Progress Bar */}
+                            {importStatus && (
+                                <div className="mt-3 bg-black/50 rounded-lg p-2 text-center">
+                                    <span className="text-green-400 font-mono text-sm animate-pulse">{importStatus}</span>
+                                </div>
+                            )}
                         </div>
 
                          {/* User Management Toolbar */}
@@ -527,16 +563,21 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                              </div>
                              
                              <div className="text-sm text-gray-400 flex items-center justify-end">
-                                 共找到 {users.length} 位学员
+                                 共 {users.length} 位
                              </div>
                         </div>
 
+                        {/* Paginated List */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {loadingUsers ? (
                                 <div className="col-span-full py-12 text-center text-gray-500">正在获取学员数据...</div>
+                            ) : paginatedUsers.length === 0 ? (
+                                <div className="col-span-full py-12 text-center text-gray-500">
+                                    {users.length === 0 ? '暂无学员数据' : '当前页无数据'}
+                                </div>
                             ) : (
-                                users.map(u => (
-                                    <div key={u.id} className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg flex flex-col justify-between hover:border-epe-purple/50 transition-colors">
+                                paginatedUsers.map(u => (
+                                    <div key={u.id || u.name} className="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg flex flex-col justify-between hover:border-epe-purple/50 transition-colors">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h3 className="text-xl font-bold text-white">{u.name}</h3>
@@ -569,6 +610,29 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 ))
                             )}
                         </div>
+
+                        {/* Pagination Controls */}
+                        {users.length > USERS_PER_PAGE && (
+                            <div className="flex justify-center gap-2 mt-6 pb-8">
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className={`px-4 py-2 rounded bg-gray-800 border border-gray-600 ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+                                >
+                                    上一页
+                                </button>
+                                <span className="px-4 py-2 text-gray-400 text-sm flex items-center">
+                                    第 {currentPage} / {totalPages} 页
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-4 py-2 rounded bg-gray-800 border border-gray-600 ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+                                >
+                                    下一页
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -875,94 +939,83 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
   );
 };
 
-// --- Main App Logic ---
-
 const App: React.FC = () => {
-    const [user, setUser] = useState<User | null>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [loginLoading, setLoginLoading] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    // Initial load for fragments if returning user
     const handleLogin = async (name: string) => {
-        setLoginLoading(true);
-        
-        let foundUser: User | null = null;
+        setLoading(true);
 
-        if (isSupabaseConfigured && supabase) {
-            // Check if user exists in DB
-             const { data } = await supabase
+        // Offline / Demo mode
+        if (!isSupabaseConfigured || !supabase) {
+            setCurrentUser({
+                id: 999,
+                name: name,
+                points: 100,
+                fragment_500: 0,
+                fragment_free: 0
+            });
+            setLoading(false);
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase
                 .from('users')
                 .select('*')
                 .eq('name', name)
                 .single();
             
+            if (error && error.code !== 'PGRST116') {
+                 throw error;
+            }
+
             if (data) {
-                // User exists, load their real data
-                foundUser = {
-                    id: data.id,
-                    name: data.name,
-                    points: data.points,
-                    fragment_500: data.fragment_500,
-                    fragment_free: data.fragment_free,
-                };
+                setCurrentUser(data as User);
             } else {
-                // User does not exist, create new one.
-                const { data: newUser, error } = await supabase
+                 // Auto-create user for simplicity
+                 const { data: newUser, error: createError } = await supabase
                     .from('users')
-                    .insert([{ name, points: 300 }]) // Default points for new users
+                    .insert([{ name, points: 0 }])
                     .select()
                     .single();
                 
-                if (newUser && !error) {
-                    foundUser = {
-                        id: newUser.id,
-                        name: newUser.name,
-                        points: newUser.points,
-                        fragment_500: newUser.fragment_500,
-                        fragment_free: newUser.fragment_free,
-                    };
-                }
+                 if (createError) throw createError;
+                 if (newUser) setCurrentUser(newUser as User);
             }
-        } else {
-            // Offline/Demo Mode
-            foundUser = {
-                id: 0,
-                name,
-                points: 300, 
-                fragment_500: 0,
-                fragment_free: 0,
-            };
+        } catch (err: any) {
+            alert("登录失败: " + err.message);
+        } finally {
+            setLoading(false);
         }
-
-        setUser(foundUser);
-        setLoginLoading(false);
     };
 
     const handleUpdateUser = (updates: Partial<User>) => {
-        if (user) {
-            setUser({ ...user, ...updates });
+        if (currentUser) {
+            setCurrentUser({ ...currentUser, ...updates });
         }
     };
 
     return (
         <>
             <ConnectionStatus />
-            {!isSupabaseConfigured && <DatabaseSetupGuide />}
+            <DatabaseSetupGuide />
             
             {isAdmin ? (
                 <AdminPanel onBack={() => setIsAdmin(false)} />
-            ) : !user ? (
+            ) : currentUser ? (
+                <GachaMachine 
+                    user={currentUser} 
+                    onLogout={() => setCurrentUser(null)} 
+                    onUpdateUser={handleUpdateUser}
+                />
+            ) : (
                 <LoginForm 
                     onLogin={handleLogin} 
                     isAdminMode={isAdmin} 
-                    toggleAdmin={() => setIsAdmin(true)}
-                    loading={loginLoading}
-                />
-            ) : (
-                <GachaMachine 
-                    user={user} 
-                    onLogout={() => setUser(null)}
-                    onUpdateUser={handleUpdateUser}
+                    toggleAdmin={() => setIsAdmin(true)} 
+                    loading={loading}
                 />
             )}
         </>
