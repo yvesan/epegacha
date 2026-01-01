@@ -137,6 +137,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [pointsDelta, setPointsDelta] = useState<string>(''); // For inputting +100 or -50
+    const [pasteContent, setPasteContent] = useState(''); // Textarea content
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch Records
@@ -257,6 +258,11 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     };
 
     const processCSV = async (csvText: string) => {
+        if (!isSupabaseConfigured || !supabase) {
+             alert("❌ 请先连接数据库");
+             return;
+        }
+
         // 1. Parse CSV
         const lines = csvText.split(/\r?\n/);
         const updates: {name: string, points: number}[] = [];
@@ -264,8 +270,8 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
-            // Support both EN and CN commas
-            const parts = line.split(/,|，/); 
+            // Support EN comma, CN comma, and Tab (for Excel copy-paste)
+            const parts = line.split(/,|，|\t/); 
             if (parts.length < 2) continue;
 
             const name = parts[0].trim();
@@ -279,7 +285,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
 
         if (updates.length === 0) {
-            alert("⚠️ 未能识别有效数据。\n请确保CSV格式为：姓名, 积分\n例如：\n张三, 100\n李四, 200");
+            alert("⚠️ 未能识别有效数据。\n格式要求：姓名, 积分 (每行一个)\n例如：\n张三, 100\n李四, 200");
             return;
         }
 
@@ -289,11 +295,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         setLoadingUsers(true);
         try {
             // 2. Fetch existing users to allow accumulation logic
-            // We fetch all users in the list to check if they exist and what their current points are.
             const names = updates.map(u => u.name);
             
             // Supabase 'in' query
-            const { data: existingUsers, error: fetchError } = await supabase!
+            const { data: existingUsers, error: fetchError } = await supabase
                 .from('users')
                 .select('*')
                 .in('name', names);
@@ -326,13 +331,14 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             });
 
             // 4. Execute Upsert
-            const { error: upsertError } = await supabase!
+            const { error: upsertError } = await supabase
                 .from('users')
                 .upsert(payload, { onConflict: 'name' });
 
             if (upsertError) throw upsertError;
 
             alert(`✅ 成功导入/更新 ${payload.length} 位学员积分！`);
+            setPasteContent(''); // Clear text area on success
             fetchUsers(); // Refresh the list
 
         } catch (err: any) {
@@ -454,9 +460,48 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     </div>
                 ) : (
                     <div className="space-y-4 animate-pop">
+                         
+                         {/* NEW: Paste Import Area */}
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 mb-2 shadow-lg">
+                            <div className="flex justify-between items-center mb-2">
+                                <h3 className="font-bold text-white flex items-center gap-2">
+                                    ⚡ 极速导入 (支持 Excel 直接粘贴)
+                                </h3>
+                                <span className="text-xs text-gray-400 bg-gray-900 px-2 py-1 rounded">
+                                    自动识别：逗号 或 Tab分隔
+                                </span>
+                            </div>
+                            <div className="flex flex-col md:flex-row gap-4">
+                                <textarea
+                                    value={pasteContent}
+                                    onChange={(e) => setPasteContent(e.target.value)}
+                                    placeholder={`格式：姓名, 积分 (每行一个)\n\n例子：\n张三, 100\n李四, 500\n新来的小赵, 300\n\n(您可以直接从 Excel 复制两列数据粘贴到这里)`}
+                                    className="flex-1 bg-black/40 border border-gray-600 rounded-lg p-3 text-sm text-white focus:border-epe-blue focus:outline-none h-32 font-mono resize-none leading-relaxed placeholder-gray-600"
+                                />
+                                <div className="flex flex-col gap-2 justify-center min-w-[120px]">
+                                    <button
+                                        onClick={async () => {
+                                            if(!pasteContent.trim()) return;
+                                            await processCSV(pasteContent);
+                                        }}
+                                        disabled={!pasteContent.trim()}
+                                        className={`py-3 px-4 rounded-lg font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${pasteContent.trim() ? 'bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white transform hover:scale-105' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}
+                                    >
+                                        🚀 执行导入
+                                    </button>
+                                    <button
+                                        onClick={() => setPasteContent('')}
+                                        className="py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs transition"
+                                    >
+                                        清空内容
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                          {/* User Management Toolbar */}
-                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row justify-between gap-4">
-                             <div className="flex gap-2 flex-1">
+                        <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row justify-between gap-4 items-center">
+                             <div className="flex gap-2 flex-1 w-full md:w-auto">
                                 <input 
                                     type="text" 
                                     placeholder="🔍 搜索学员姓名..." 
@@ -464,7 +509,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="bg-black/30 border border-gray-600 rounded px-4 py-2 text-white focus:border-epe-purple focus:outline-none w-full md:w-64"
                                 />
-                                {/* Bulk Import Button */}
+                                {/* Legacy Bulk Import Button (Hidden or Secondary) */}
                                 <input 
                                     type="file" 
                                     accept=".csv" 
@@ -474,9 +519,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 />
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 whitespace-nowrap transition border border-green-600"
+                                    className="bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded text-xs flex items-center gap-2 whitespace-nowrap transition border border-gray-600"
+                                    title="如果您一定要传文件，可以用这个"
                                 >
-                                    📥 批量导入 (CSV)
+                                    📁 传文件
                                 </button>
                              </div>
                              
