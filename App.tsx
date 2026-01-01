@@ -212,6 +212,65 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         }
     };
 
+    // --- NEW: Delete Record ---
+    const handleDelete = async (idStr: string) => {
+        if (!confirm('⚠️ 警告：确定要永久删除这条记录吗？\n\n删除后无法恢复，且不会自动退还用户积分。仅建议用于删除测试数据。')) return;
+        
+        if (isSupabaseConfigured && supabase) {
+            try {
+                const dbId = parseInt(idStr);
+                const { error } = await supabase.from('records').delete().eq('id', dbId);
+                if (error) throw error;
+                // Optimistic update
+                setRecords(prev => prev.filter(r => r.id !== idStr));
+            } catch (e: any) {
+                alert('删除失败: ' + e.message);
+            }
+        } else {
+             // Offline delete
+             setRecords(prev => prev.filter(r => r.id !== idStr));
+        }
+    };
+
+    // --- NEW: Export to CSV ---
+    const handleExport = () => {
+        if (records.length === 0) {
+            alert("暂无记录可导出");
+            return;
+        }
+        
+        // Define CSV Header
+        const headers = ["记录ID", "中奖时间", "学员姓名", "奖品名称", "奖品类型", "奖品价值", "是否已核销"];
+        
+        // Map data to CSV rows
+        const rows = records.map(r => [
+            r.id,
+            new Date(r.created_at).toLocaleString(),
+            r.user_name,
+            r.prize_name,
+            r.prize_type,
+            r.prize_value,
+            r.is_redeemed ? "已核销" : "未核销"
+        ]);
+        
+        // Join with commas and newlines. Add quotes to handle commas in data.
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(item => `"${String(item).replace(/"/g, '""')}"`).join(","))
+        ].join("\n");
+
+        // Add BOM for Excel UTF-8 compatibility
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        link.setAttribute("download", `EPE_中奖记录_${dateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const handleUpdatePoints = async () => {
         if (!editingUser || !pointsDelta) return;
         const delta = parseInt(pointsDelta);
@@ -438,9 +497,22 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                 {activeTab === 'redeem' ? (
                     <div className="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700 animate-pop">
-                         <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-                            <h3 className="font-bold text-lg">核销记录列表</h3>
-                            <button onClick={fetchRecords} className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded">↻ 刷新</button>
+                         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-750">
+                            <h3 className="font-bold text-lg text-white">核销记录列表</h3>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleExport} 
+                                    className="text-sm bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded flex items-center gap-1 font-bold shadow-sm transition"
+                                >
+                                    📥 导出 Excel
+                                </button>
+                                <button 
+                                    onClick={fetchRecords} 
+                                    className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded border border-gray-600 transition"
+                                >
+                                    ↻ 刷新
+                                </button>
+                            </div>
                          </div>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse">
@@ -460,7 +532,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                         <tr><td colSpan={5} className="p-12 text-center text-gray-500">暂无记录</td></tr>
                                     ) : (
                                         records.map(record => (
-                                            <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors">
+                                            <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors group">
                                                 <td className="p-4 text-sm text-gray-400">{new Date(record.created_at).toLocaleString()}</td>
                                                 <td className="p-4 font-medium">{record.user_name}</td>
                                                 <td className="p-4">
@@ -468,18 +540,29 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                                     <span className="text-xs text-gray-500 ml-2">({record.prize_type})</span>
                                                 </td>
                                                 <td className="p-4">
-                                                    {record.is_redeemed ? <span className="text-green-400">✓ 已核销</span> : <span className="text-red-400">! 待处理</span>}
+                                                    {record.is_redeemed ? <span className="text-green-400 font-bold text-xs border border-green-900 bg-green-900/20 px-2 py-1 rounded">已核销</span> : <span className="text-red-400 font-bold text-xs border border-red-900 bg-red-900/20 px-2 py-1 rounded">待处理</span>}
                                                 </td>
-                                                <td className="p-4 text-center">
-                                                    {!record.is_redeemed && record.prize_type !== 'EMPTY' && record.prize_type !== 'POINT' && record.prize_type !== 'FRAGMENT' && (
+                                                <td className="p-4">
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        {!record.is_redeemed && record.prize_type !== 'EMPTY' && record.prize_type !== 'POINT' && record.prize_type !== 'FRAGMENT' && (
+                                                            <button 
+                                                                onClick={() => handleRedeem(record.id)}
+                                                                disabled={processingId === record.id}
+                                                                className="px-3 py-1 bg-epe-blue text-black text-xs font-bold rounded hover:bg-cyan-300 shadow-lg min-w-[60px]"
+                                                            >
+                                                                {processingId === record.id ? '...' : '核销'}
+                                                            </button>
+                                                        )}
                                                         <button 
-                                                            onClick={() => handleRedeem(record.id)}
-                                                            disabled={processingId === record.id}
-                                                            className="px-3 py-1 bg-epe-blue text-black text-xs font-bold rounded hover:bg-cyan-300"
+                                                            onClick={() => handleDelete(record.id)}
+                                                            className="text-gray-600 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-900/20"
+                                                            title="删除此记录"
                                                         >
-                                                            {processingId === record.id ? '...' : '核销'}
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                            </svg>
                                                         </button>
-                                                    )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
