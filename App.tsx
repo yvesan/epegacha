@@ -137,6 +137,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [pointsDelta, setPointsDelta] = useState<string>(''); // For inputting +100 or -50
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch Records
     const fetchRecords = async () => {
@@ -234,6 +235,114 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             }
         }
     };
+
+    // --- CSV Bulk Import Logic ---
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!isSupabaseConfigured || !supabase) {
+            alert("❌ 请先连接数据库（无法在演示模式下使用导入功能）");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const text = e.target?.result as string;
+            await processCSV(text);
+        };
+        reader.readAsText(file);
+        // Clear input so same file can be selected again
+        event.target.value = '';
+    };
+
+    const processCSV = async (csvText: string) => {
+        // 1. Parse CSV
+        const lines = csvText.split(/\r?\n/);
+        const updates: {name: string, points: number}[] = [];
+
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            // Support both EN and CN commas
+            const parts = line.split(/,|，/); 
+            if (parts.length < 2) continue;
+
+            const name = parts[0].trim();
+            const pointsStr = parts[1].trim();
+            const points = parseInt(pointsStr);
+
+            // Basic validation: skip header or invalid numbers
+            if (!name || isNaN(points)) continue;
+
+            updates.push({ name, points });
+        }
+
+        if (updates.length === 0) {
+            alert("⚠️ 未能识别有效数据。\n请确保CSV格式为：姓名, 积分\n例如：\n张三, 100\n李四, 200");
+            return;
+        }
+
+        const confirmMsg = `📄 识别到 ${updates.length} 条数据。\n\n即将执行【积分累加/充值】模式：\n1. 老用户：原有积分 + 导入积分\n2. 新用户：自动创建并设置初始积分\n\n确认执行吗？`;
+        if (!confirm(confirmMsg)) return;
+
+        setLoadingUsers(true);
+        try {
+            // 2. Fetch existing users to allow accumulation logic
+            // We fetch all users in the list to check if they exist and what their current points are.
+            const names = updates.map(u => u.name);
+            
+            // Supabase 'in' query
+            const { data: existingUsers, error: fetchError } = await supabase!
+                .from('users')
+                .select('*')
+                .in('name', names);
+
+            if (fetchError) throw fetchError;
+
+            // Map for quick lookup: Name -> UserObject
+            const existingMap = new Map<string, any>((existingUsers || []).map((u: any) => [u.name, u]));
+
+            // 3. Prepare Upsert Payload
+            const payload = updates.map(update => {
+                const existing = existingMap.get(update.name);
+                if (existing) {
+                    // MODE A: Accumulate
+                    // IMPORTANT: We must retain fragment counts and other fields.
+                    return {
+                        ...existing,
+                        points: existing.points + update.points,
+                        // Explicitly ensuring we update the timestamp (optional)
+                    };
+                } else {
+                    // INSERT: New User
+                    return {
+                        name: update.name,
+                        points: update.points,
+                        fragment_500: 0,
+                        fragment_free: 0
+                    };
+                }
+            });
+
+            // 4. Execute Upsert
+            const { error: upsertError } = await supabase!
+                .from('users')
+                .upsert(payload, { onConflict: 'name' });
+
+            if (upsertError) throw upsertError;
+
+            alert(`✅ 成功导入/更新 ${payload.length} 位学员积分！`);
+            fetchUsers(); // Refresh the list
+
+        } catch (err: any) {
+            console.error(err);
+            alert("❌ 导入失败: " + err.message);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
 
     useEffect(() => {
         if (activeTab === 'redeem') fetchRecords();
@@ -347,13 +456,30 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     <div className="space-y-4 animate-pop">
                          {/* User Management Toolbar */}
                         <div className="bg-gray-800 p-4 rounded-xl border border-gray-700 flex flex-col md:flex-row justify-between gap-4">
-                             <input 
-                                type="text" 
-                                placeholder="🔍 搜索学员姓名..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-black/30 border border-gray-600 rounded px-4 py-2 text-white focus:border-epe-purple focus:outline-none w-full md:w-64"
-                             />
+                             <div className="flex gap-2 flex-1">
+                                <input 
+                                    type="text" 
+                                    placeholder="🔍 搜索学员姓名..." 
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="bg-black/30 border border-gray-600 rounded px-4 py-2 text-white focus:border-epe-purple focus:outline-none w-full md:w-64"
+                                />
+                                {/* Bulk Import Button */}
+                                <input 
+                                    type="file" 
+                                    accept=".csv" 
+                                    ref={fileInputRef} 
+                                    onChange={handleFileUpload} 
+                                    className="hidden" 
+                                />
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded text-sm font-bold flex items-center gap-2 whitespace-nowrap transition border border-green-600"
+                                >
+                                    📥 批量导入 (CSV)
+                                </button>
+                             </div>
+                             
                              <div className="text-sm text-gray-400 flex items-center justify-end">
                                  共找到 {users.length} 位学员
                              </div>
