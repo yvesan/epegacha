@@ -130,6 +130,8 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const [records, setRecords] = useState<DrawRecord[]>([]);
     const [loadingRecords, setLoadingRecords] = useState(false);
     const [processingId, setProcessingId] = useState<string | null>(null);
+    // NEW: Search state for records
+    const [recordSearchTerm, setRecordSearchTerm] = useState('');
 
     // --- Users Logic ---
     const [users, setUsers] = useState<User[]>([]);
@@ -168,6 +170,15 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setLoadingRecords(false);
         }
     };
+
+    // Filter Records based on search
+    const filteredRecords = records.filter(record => {
+        const term = recordSearchTerm.toLowerCase();
+        return (
+            record.user_name.toLowerCase().includes(term) ||
+            record.prize_name.toLowerCase().includes(term)
+        );
+    });
 
     // Fetch Users
     const fetchUsers = async () => {
@@ -234,7 +245,9 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
     // --- NEW: Export to CSV ---
     const handleExport = () => {
-        if (records.length === 0) {
+        const dataToExport = filteredRecords.length > 0 ? filteredRecords : records;
+
+        if (dataToExport.length === 0) {
             alert("暂无记录可导出");
             return;
         }
@@ -243,7 +256,7 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         const headers = ["记录ID", "中奖时间", "学员姓名", "奖品名称", "奖品类型", "奖品价值", "是否已核销"];
         
         // Map data to CSV rows
-        const rows = records.map(r => [
+        const rows = dataToExport.map(r => [
             r.id,
             new Date(r.created_at).toLocaleString(),
             r.user_name,
@@ -497,21 +510,31 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
                 {activeTab === 'redeem' ? (
                     <div className="bg-gray-800 rounded-xl overflow-hidden shadow-xl border border-gray-700 animate-pop">
-                         <div className="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-750">
+                         <div className="p-4 border-b border-gray-700 flex flex-col md:flex-row justify-between items-center bg-gray-750 gap-4">
                             <h3 className="font-bold text-lg text-white">核销记录列表</h3>
-                            <div className="flex gap-2">
-                                <button 
-                                    onClick={handleExport} 
-                                    className="text-sm bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded flex items-center gap-1 font-bold shadow-sm transition"
-                                >
-                                    📥 导出 Excel
-                                </button>
-                                <button 
-                                    onClick={fetchRecords} 
-                                    className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded border border-gray-600 transition"
-                                >
-                                    ↻ 刷新
-                                </button>
+                            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto items-center">
+                                {/* NEW: Search Input */}
+                                <input 
+                                    type="text" 
+                                    placeholder="🔍 搜索姓名或奖品..." 
+                                    value={recordSearchTerm}
+                                    onChange={(e) => setRecordSearchTerm(e.target.value)}
+                                    className="bg-black/30 border border-gray-600 rounded px-3 py-1.5 text-white text-sm focus:border-epe-blue focus:outline-none w-full md:w-48"
+                                />
+                                <div className="flex gap-2 w-full md:w-auto">
+                                    <button 
+                                        onClick={handleExport} 
+                                        className="text-sm bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded flex items-center justify-center gap-1 font-bold shadow-sm transition flex-1 md:flex-none"
+                                    >
+                                        📥 导出
+                                    </button>
+                                    <button 
+                                        onClick={fetchRecords} 
+                                        className="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded border border-gray-600 transition flex-1 md:flex-none"
+                                    >
+                                        ↻ 刷新
+                                    </button>
+                                </div>
                             </div>
                          </div>
                         <div className="overflow-x-auto">
@@ -528,10 +551,10 @@ const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                                 <tbody>
                                     {loadingRecords ? (
                                         <tr><td colSpan={5} className="p-12 text-center text-gray-400 animate-pulse">加载中...</td></tr>
-                                    ) : records.length === 0 ? (
-                                        <tr><td colSpan={5} className="p-12 text-center text-gray-500">暂无记录</td></tr>
+                                    ) : filteredRecords.length === 0 ? (
+                                        <tr><td colSpan={5} className="p-12 text-center text-gray-500">{records.length === 0 ? "暂无记录" : "未找到相关记录"}</td></tr>
                                     ) : (
-                                        records.map(record => (
+                                        filteredRecords.map(record => (
                                             <tr key={record.id} className="border-b border-gray-700 hover:bg-gray-750 transition-colors group">
                                                 <td className="p-4 text-sm text-gray-400">{new Date(record.created_at).toLocaleString()}</td>
                                                 <td className="p-4 font-medium">{record.user_name}</td>
