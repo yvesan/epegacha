@@ -17,6 +17,39 @@ const ConnectionStatus = () => {
 
 // --- Sub-Components ---
 
+// 0. Prize Ticker Component (Scrolling Marquee)
+const PrizeTicker: React.FC = () => {
+    const items = [
+        { icon: "🏆", text: "传说级大奖: 100元现金红包 / 500元碎片 / 免单碎片", color: "text-epe-gold" },
+        { icon: "🧸", text: "潮流福利: BILIBILI 大会员 / 泡泡玛特盲盒", color: "text-pink-400" },
+        { icon: "👕", text: "运动实物: EPE定制T恤 / 随机运动装备", color: "text-epe-blue" },
+        { icon: "💰", text: "现金红包: 5元 / 10元 / 20元 微信红包", color: "text-green-400" },
+        { icon: "🎫", text: "课程福利: 50元 课程代金券", color: "text-purple-400" },
+        { icon: "✨", text: "积分返还: 100% 中奖几率", color: "text-gray-300" },
+    ];
+
+    return (
+        <div className="w-full bg-black/40 backdrop-blur-md border-y border-white/10 overflow-hidden py-2.5 relative z-10">
+            {/* Gradient Masks for smooth fade out */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-epe-black to-transparent z-20 pointer-events-none"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-epe-black to-transparent z-20 pointer-events-none"></div>
+
+            <div className="flex animate-marquee whitespace-nowrap">
+                {/* Duplicate the list to ensure seamless infinite scrolling */}
+                {[...items, ...items, ...items].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 mx-6">
+                        <span className="text-lg filter drop-shadow-md">{item.icon}</span>
+                        <span className={`text-xs md:text-sm font-bold tracking-wide ${item.color} drop-shadow-sm`}>
+                            {item.text}
+                        </span>
+                        <span className="text-gray-600 text-[10px] ml-6">•</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 // 1. Login Component
 interface LoginProps {
   onLogin: (name: string) => void;
@@ -937,9 +970,14 @@ const GachaMachine: React.FC<GachaProps> = ({ user, onLogout, onUpdateUser }) =>
                 <button onClick={onLogout} className="text-sm text-gray-500 hover:text-white">退出</button>
             </div>
         </div>
+        
+        {/* NEW: Scrolling Prize Ticker */}
+        <div className="w-full relative z-10 mt-12 md:mt-8">
+            <PrizeTicker />
+        </div>
 
         {/* Fragment Dashboard */}
-        <div className="w-full max-w-4xl p-4 grid grid-cols-2 gap-4 z-20 mt-12 md:mt-12">
+        <div className="w-full max-w-4xl p-4 grid grid-cols-2 gap-4 z-20 mt-2 md:mt-2">
             <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 flex flex-col items-center shadow-lg">
                 <span className="text-xs text-gray-400 mb-1 font-bold">500元红包碎片</span>
                 <div className="flex gap-1">
