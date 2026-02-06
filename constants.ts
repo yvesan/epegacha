@@ -13,26 +13,26 @@ export const PRIZE_POOL: Prize[] = [
   // 1. 纯空奖 (19.92%)
   { id: 'p_empty', name: '再接再厉', type: PrizeType.EMPTY, value: 0, probability: 19.92, rarity: Rarity.COMMON, description: '差一点点就中了！' },
   
-  // 2. 积分返还奖 (36%)
-  { id: 'p_pt_5', name: '5积分', type: PrizeType.POINT, value: 5, probability: 20.0, rarity: Rarity.COMMON, description: '价值1元' },
-  { id: 'p_pt_10', name: '10积分', type: PrizeType.POINT, value: 10, probability: 10.0, rarity: Rarity.COMMON, description: '价值2元' },
-  { id: 'p_pt_20', name: '20积分', type: PrizeType.POINT, value: 20, probability: 6.0, rarity: Rarity.UNCOMMON, description: '价值4元' },
+  // 2. 积分返还奖 (41%)
+  { id: 'p_pt_5', name: '5积分', type: PrizeType.POINT, value: 5, probability: 22.0, rarity: Rarity.COMMON, description: '价值1元' },
+  { id: 'p_pt_10', name: '10积分', type: PrizeType.POINT, value: 10, probability: 12.0, rarity: Rarity.COMMON, description: '价值2元' },
+  { id: 'p_pt_20', name: '20积分', type: PrizeType.POINT, value: 20, probability: 7.0, rarity: Rarity.UNCOMMON, description: '价值4元' },
 
   // 3. 现金红包类 (18.4%)
-  { id: 'p_cash_5', name: '5元红包', type: PrizeType.CASH, value: 5, probability: 13.1, rarity: Rarity.UNCOMMON, description: '微信红包' },
+  { id: 'p_cash_5', name: '5元红包', type: PrizeType.CASH, value: 5, probability: 14.1, rarity: Rarity.UNCOMMON, description: '微信红包' },
   { id: 'p_cash_10', name: '10元红包', type: PrizeType.CASH, value: 10, probability: 3.0, rarity: Rarity.UNCOMMON, description: '微信红包' },
-  { id: 'p_cash_20', name: '20元红包', type: PrizeType.CASH, value: 20, probability: 2.0, rarity: Rarity.RARE, description: '微信红包' },
+  { id: 'p_cash_20', name: '20元红包', type: PrizeType.CASH, value: 20, probability: 1.0, rarity: Rarity.RARE, description: '微信红包' },
   { id: 'p_cash_100', name: '100元红包', type: PrizeType.CASH, value: 100, probability: 0.3, rarity: Rarity.LEGENDARY, description: '传说级大红包！' },
 
   // 4. 课程代金券 (4%)
   { id: 'p_vou_50', name: '50元课程券', type: PrizeType.VOUCHER, value: 50, probability: 4.0, rarity: Rarity.UNCOMMON, description: '课程代金券' },
 
-  // 5. 实物与潮流奖品 (21.2%)
+  // 5. 实物与潮流奖品 (16.2%)
   { id: 'p_item_drink', name: '运动饮料/能量棒', type: PrizeType.PHYSICAL, value: 5, probability: 7.0, rarity: Rarity.COMMON, description: '补充能量' },
   { id: 'p_item_gear', name: '随机运动装备', type: PrizeType.PHYSICAL, value: 55, probability: 5.0, rarity: Rarity.RARE, description: '跳绳/瑜伽垫/哑铃等' },
-  { id: 'p_item_bili', name: 'BILIBILI大会员', type: PrizeType.PHYSICAL, value: 25, probability: 3.6, rarity: Rarity.RARE, description: '月度大会员激活码' },
-  { id: 'p_item_popmart', name: '泡泡玛特盲盒', type: PrizeType.PHYSICAL, value: 69, probability: 3.6, rarity: Rarity.RARE, description: '随机系列盲盒一个' },
-  { id: 'p_item_cloth', name: '运动T恤/短裤', type: PrizeType.PHYSICAL, value: 100, probability: 2.0, rarity: Rarity.RARE, description: 'EPE定制' },
+  { id: 'p_item_bili', name: 'BILIBILI大会员', type: PrizeType.PHYSICAL, value: 25, probability: 1.6, rarity: Rarity.RARE, description: '月度大会员激活码' },
+  { id: 'p_item_popmart', name: '泡泡玛特盲盒', type: PrizeType.PHYSICAL, value: 69, probability: 1.6, rarity: Rarity.RARE, description: '随机系列盲盒一个' },
+  { id: 'p_item_cloth', name: '运动T恤/短裤', type: PrizeType.PHYSICAL, value: 100, probability: 1.0, rarity: Rarity.RARE, description: 'EPE定制' },
 
   // 6. 传说碎片 (0.48%)
   { id: 'p_frag_500', name: '500元红包碎片', type: PrizeType.FRAGMENT, value: 0, probability: 0.24, rarity: Rarity.LEGENDARY, description: '集齐3个兑换500元' },
