@@ -28,10 +28,10 @@ export const PRIZE_POOL: Prize[] = [
   { id: 'p_vou_50', name: '50元课程券', type: PrizeType.VOUCHER, value: 50, probability: 4.0, rarity: Rarity.UNCOMMON, description: '课程代金券' },
 
   // 5. 实物与潮流奖品 (16.2%)
-  { id: 'p_item_drink', name: '运动饮料', type: PrizeType.PHYSICAL, value: 5, probability: 7.0, rarity: Rarity.COMMON, description: '补充能量' },
+  { id: 'p_item_drink', name: '运动饮料', type: PrizeType.PHYSICAL, value: 5, probability: 9.0, rarity: Rarity.COMMON, description: '补充能量' },
   { id: 'p_item_gear', name: '随机运动装备', type: PrizeType.PHYSICAL, value: 55, probability: 5.0, rarity: Rarity.RARE, description: '跳绳/瑜伽垫/哑铃等' },
-  { id: 'p_item_bili', name: 'BILIBILI大会员月卡', type: PrizeType.PHYSICAL, value: 25, probability: 1.6, rarity: Rarity.RARE, description: '月度大会员激活码' },
-  { id: 'p_item_popmart', name: '泡泡玛特盲盒x1', type: PrizeType.PHYSICAL, value: 69, probability: 1.6, rarity: Rarity.RARE, description: '随机系列盲盒一个' },
+  { id: 'p_item_bili', name: 'BILIBILI大会员月卡', type: PrizeType.PHYSICAL, value: 25, probability: 0.6, rarity: Rarity.RARE, description: '月度大会员激活码' },
+  { id: 'p_item_popmart', name: '泡泡玛特盲盒x1', type: PrizeType.PHYSICAL, value: 69, probability: 0.6, rarity: Rarity.RARE, description: '随机系列盲盒一个' },
   { id: 'p_item_cloth', name: '运动T恤', type: PrizeType.PHYSICAL, value: 100, probability: 1.0, rarity: Rarity.RARE, description: 'EPE定制' },
 
   // 6. 传说碎片 (0.48%)
