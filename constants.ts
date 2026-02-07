@@ -14,9 +14,9 @@ export const PRIZE_POOL: Prize[] = [
   { id: 'p_pt_5', name: '3积分', type: PrizeType.POINT, value: 3, probability: 19.92, rarity: Rarity.COMMON, description: '继续努力积少成多' },
   
   // 2. 积分返还奖 (41.3%)
-  { id: 'p_pt_5', name: '5积分', type: PrizeType.POINT, value: 5, probability: 22.0, rarity: Rarity.COMMON, description: '价值1元' },
-  { id: 'p_pt_10', name: '10积分', type: PrizeType.POINT, value: 10, probability: 12.0, rarity: Rarity.COMMON, description: '价值2元' },
-  { id: 'p_pt_20', name: '20积分', type: PrizeType.POINT, value: 20, probability: 7.3, rarity: Rarity.UNCOMMON, description: '价值4元' },
+  { id: 'p_pt_5', name: '5积分', type: PrizeType.POINT, value: 5, probability: 22.1, rarity: Rarity.COMMON, description: '价值1元' },
+  { id: 'p_pt_10', name: '10积分', type: PrizeType.POINT, value: 10, probability: 12.1, rarity: Rarity.COMMON, description: '价值2元' },
+  { id: 'p_pt_20', name: '20积分', type: PrizeType.POINT, value: 20, probability: 7.1, rarity: Rarity.UNCOMMON, description: '价值4元' },
 
   // 3. 现金红包类 (18.1%)
   { id: 'p_cash_5', name: '5元红包', type: PrizeType.CASH, value: 5, probability: 14.0, rarity: Rarity.UNCOMMON, description: '微信红包' },
