@@ -11,7 +11,7 @@ import { Prize, PrizeType, Rarity } from './types';
 
 export const PRIZE_POOL: Prize[] = [
   // 1. 鼓励奖 (19.92%)
-  { id: 'p_empty', name: '3积分', type: PrizeType.EMPTY, value: 0, probability: 19.92, rarity: Rarity.COMMON, description: '继续努力积少成多' },
+  { id: 'p_pt_5', name: '3积分', type: PrizeType.POINT, value: 3, probability: 19.92, rarity: Rarity.COMMON, description: '继续努力积少成多' },
   
   // 2. 积分返还奖 (41%)
   { id: 'p_pt_5', name: '5积分', type: PrizeType.POINT, value: 5, probability: 22.0, rarity: Rarity.COMMON, description: '价值1元' },
