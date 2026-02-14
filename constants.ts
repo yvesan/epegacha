@@ -19,10 +19,10 @@ export const PRIZE_POOL: Prize[] = [
   { id: 'p_pt_20', name: '20积分', type: PrizeType.POINT, value: 20, probability: 7.1, rarity: Rarity.UNCOMMON, description: '价值40元' },
 
   // 3. 现金红包类 (18.1%)
-  { id: 'p_cash_5', name: '5元红包', type: PrizeType.CASH, value: 5, probability: 14.0, rarity: Rarity.UNCOMMON, description: '微信红包' },
+  { id: 'p_cash_5', name: '5元红包', type: PrizeType.CASH, value: 5, probability: 14.08, rarity: Rarity.UNCOMMON, description: '微信红包' },
   { id: 'p_cash_10', name: '10元红包', type: PrizeType.CASH, value: 10, probability: 3.0, rarity: Rarity.UNCOMMON, description: '微信红包' },
   { id: 'p_cash_20', name: '20元红包', type: PrizeType.CASH, value: 20, probability: 1.0, rarity: Rarity.RARE, description: '微信红包' },
-  { id: 'p_cash_100', name: '100元红包', type: PrizeType.CASH, value: 100, probability: 0.1, rarity: Rarity.LEGENDARY, description: '传说级大红包！' },
+  { id: 'p_cash_100', name: '100元红包', type: PrizeType.CASH, value: 100, probability: 0.02, rarity: Rarity.LEGENDARY, description: '传说级大红包！' },
 
   // 4. 课程代金券 (4%)
   { id: 'p_vou_50', name: '50元课程券', type: PrizeType.VOUCHER, value: 50, probability: 4.0, rarity: Rarity.UNCOMMON, description: '课程代金券' },
